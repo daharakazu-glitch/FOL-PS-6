@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus on Listening Pre-Standard Training 6 Dictation Practice</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+        }
+        .recording-indicator {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .answer-span {
+            font-weight: bold;
+            color: #D32F2F; /* red-700 */
+            background-color: #FFEBEE; /* red-50 */
+            padding: 0 0.25rem;
+            border-radius: 0.25rem;
+            transition: all 0.2s ease-in-out;
+        }
+        .answer-placeholder {
+            font-weight: normal;
+            color: inherit;
+            background-color: transparent;
+            border-bottom: 2px solid #90A4AE; /* blue-gray-400 */
+            padding: 0 0.25rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Focus on Listening Pre-Standard Training 6 Dictation Practice</h1>
+            <p class="text-gray-600 mt-2">英文を聞き、リピーティングとオーバーラッピングの練習をしましょう。</p>
+        </header>
+
+        <div id="mic-permission" class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded-lg" role="alert">
+            <p class="font-bold">マイクの使用許可が必要です</p>
+            <p>録音機能を使用するには、ブラウザのマイクへのアクセスを許可してください。</p>
+        </div>
+
+        <main id="app-container" class="space-y-6">
+            <!-- ディクテーションカードはここに動的に挿入されます -->
+        </main>
+    </div>
+
+    <script>
+        const dictationData = [
+            {
+                id: 'q1',
+                title: 'Training 6 - ①',
+                parts: ['I think you ', {answer: 'were saying'}, ' that you ', {answer: 'wanted'}, ' to live in the countryside in the ', {answer: 'future'}, '.'],
+                fullSentence: 'I think you were saying that you wanted to live in the countryside in the future.'
+            },
+            {
+                id: 'q2',
+                title: 'Training 6 - ②',
+                parts: ['That’s right. The countryside ', {answer: 'has lots'}, ' of nature and other good things.'],
+                fullSentence: 'That’s right. The countryside has lots of nature and other good things.'
+            },
+            {
+                id: 'q3',
+                title: 'Training 6 - ③',
+                parts: ['Yeah, ', {answer: 'that’s true'}, '. But ', {answer: 'isn’t it'}, ' inconvenient? The city has a lot of shops, so it’s ', {answer: 'easier'}, ' to get the ', {answer: 'things we'}, ' need.'],
+                fullSentence: 'Yeah, that’s true. But isn’t it inconvenient? The city has a lot of shops, so it’s easier to get the things we need.'
+            },
+            {
+                id: 'q4',
+                title: 'Training 6 - ④',
+                parts: ['Today we have the Internet, so that’s not a ', {answer: 'problem'}, '.'],
+                fullSentence: 'Today we have the Internet, so that’s not a problem.'
+            },
+            {
+                id: 'q5',
+                title: 'Training 6 - ⑤',
+                parts: ['', {answer: 'True'}, '. But I think there ', {answer: 'are times'}, ' you want to buy something ', {answer: 'right away'}, '.'],
+                fullSentence: 'True. But I think there are times you want to buy something right away.'
+            },
+            {
+                id: 'q6',
+                title: 'Training 6 - ⑥',
+                parts: ['Maybe so. ', {answer: 'But I'}, ' usually plan out my shopping ', {answer: 'in'}, ' advance. And I think the countryside ', {answer: 'offers'}, ' things ', {answer: 'that'}, ' are more important than ', {answer: 'convenience'}, '.'],
+                fullSentence: 'Maybe so. But I usually plan out my shopping in advance. And I think the countryside offers things that are more important than convenience.'
+            }
+        ];
+
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let currentRecordingButton = null;
+
+        const synth = window.speechSynthesis;
+        let voices = [];
+
+        function populateVoiceList() {
+            voices = synth.getVoices().filter(voice => voice.lang.startsWith('en'));
+        }
+        populateVoiceList();
+        if (synth.onvoiceschanged !== undefined) {
+            synth.onvoiceschanged = populateVoiceList;
+        }
+
+        async function setupAudio() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const options = { mimeType: 'audio/webm' };
+                    try {
+                        mediaRecorder = new MediaRecorder(stream, options);
+                    } catch (e) {
+                        console.error(`'${options.mimeType}' でのMediaRecorder作成に失敗しました: ${e}, デフォルト設定で再試行します。`);
+                        try {
+                            mediaRecorder = new MediaRecorder(stream);
+                        } catch (e2) {
+                            alert("お使いのブラウザでは録音機能を利用できません。");
+                            console.error("MediaRecorderの作成に失敗しました: ", e2);
+                            return;
+                        }
+                    }
+                    mediaRecorder.addEventListener("dataavailable", event => audioChunks.push(event.data));
+                    mediaRecorder.addEventListener("stop", () => {
+                        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+                        const audioBlob = new Blob(audioChunks, { type: mimeType });
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        if (currentRecordingButton) {
+                            const targetListId = currentRecordingButton.dataset.targetList;
+                            const recordingsList = document.getElementById(targetListId);
+                            addRecordingToList(audioUrl, recordingsList);
+                        }
+                        audioChunks = [];
+                        isRecording = false;
+                        if(currentRecordingButton) {
+                            currentRecordingButton.classList.remove('bg-red-500', 'hover:bg-red-600', 'recording-indicator');
+                            currentRecordingButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                            currentRecordingButton.textContent = currentRecordingButton.dataset.recordText;
+                            currentRecordingButton = null;
+                        }
+                    });
+                } catch (err) {
+                    console.error("マイクへのアクセスが拒否されました: ", err);
+                    document.getElementById('mic-permission').classList.remove('hidden');
+                }
+            } else {
+                alert("お使いのブラウザは録音機能に対応していません。");
+            }
+        }
+
+        function playAudio(text, onEndCallback = null) {
+            if (synth.speaking) synth.cancel();
+            if (text) {
+                const utterThis = new SpeechSynthesisUtterance(text);
+                utterThis.onerror = e => console.error('SpeechSynthesisUtterance.onerror', e);
+                if (onEndCallback) {
+                    utterThis.onend = onEndCallback;
+                }
+                const selectedVoice = voices.find(voice => voice.name === 'Google US English') || voices[0];
+                if (selectedVoice) utterThis.voice = selectedVoice;
+                synth.speak(utterThis);
+            } else if (onEndCallback) {
+                onEndCallback();
+            }
+        }
+
+        function toggleAnswer(cardId) {
+            const spans = document.querySelectorAll(`#card-${cardId} .answer-span`);
+            spans.forEach(span => {
+                if (span.classList.contains('answer-placeholder')) {
+                    span.textContent = span.dataset.answer;
+                    span.classList.remove('answer-placeholder');
+                } else {
+                    span.textContent = '________';
+                    span.classList.add('answer-placeholder');
+                }
+            });
+        }
+
+        function handleRecordClick(button, type, questionId, fullSentence = null) {
+            if (!mediaRecorder) {
+                alert("録音機能がセットアップされていません。マイクを許可してください。");
+                return;
+            }
+
+            if (isRecording) {
+                if (button !== currentRecordingButton) return;
+                mediaRecorder.stop();
+                synth.cancel();
+            } else {
+                const startRecording = () => {
+                    audioChunks = [];
+                    isRecording = true;
+                    currentRecordingButton = button;
+                    currentRecordingButton.dataset.targetList = `${type}-recordings-${questionId}`;
+                    currentRecordingButton.dataset.recordText = button.textContent;
+                    button.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                    button.classList.add('bg-red-500', 'hover:bg-red-600', 'recording-indicator');
+                    button.textContent = '録音停止';
+                    mediaRecorder.start();
+                };
+
+                if (type === 'repeating' && fullSentence) {
+                    playAudio(fullSentence, startRecording);
+                } else if (type === 'overlapping' && fullSentence) {
+                    playAudio(fullSentence);
+                    startRecording();
+                }
+            }
+        }
+        
+        function addRecordingToList(audioUrl, listElement) {
+            if (listElement.children.length >= 10) {
+                listElement.removeChild(listElement.firstChild);
+            }
+            const recordingItem = document.createElement('li');
+            recordingItem.className = "flex items-center justify-between bg-white p-2 rounded-md shadow-sm";
+            const audio = new Audio(audioUrl);
+            audio.controls = true;
+            audio.className = "w-full";
+            const deleteBtn = document.createElement('button');
+            deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500 hover:text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>`;
+            deleteBtn.className = "ml-2 flex-shrink-0";
+            deleteBtn.onclick = () => recordingItem.remove();
+            recordingItem.appendChild(audio);
+            recordingItem.appendChild(deleteBtn);
+            listElement.appendChild(recordingItem);
+        }
+
+        function createDictationCard(data) {
+            const { id, title, parts, fullSentence } = data;
+
+            const questionHtml = parts.map(part => {
+                if (typeof part === 'string') {
+                    return `<span>${part}</span>`;
+                }
+                return `<span class="answer-span answer-placeholder" data-answer="${part.answer}">${'_'.repeat(part.answer.length > 8 ? 8 : part.answer.length)}</span>`;
+            }).join('');
+
+            return `
+                <div id="card-${id}" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">${title}</h2>
+                    
+                    <div class="bg-blue-50 p-4 rounded-lg mb-6">
+                        <p class="text-lg text-blue-800 leading-relaxed">${questionHtml}</p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 mb-6">
+                        <button onclick="playAudio('${fullSentence.replace(/'/g, "\\'")}')" class="flex-grow sm:flex-grow-0 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200">
+                            音声再生
+                        </button>
+                        <button onclick="toggleAnswer('${id}')" class="flex-grow sm:flex-grow-0 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200">
+                            解答の表示/非表示
+                        </button>
+                    </div>
+                    
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <h3 class="font-semibold text-lg mb-3">リピーティング</h3>
+                            <button onclick="handleRecordClick(this, 'repeating', '${id}', '${fullSentence.replace(/'/g, "\\'")}')" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg mb-3 transition-colors duration-200">
+                                録音開始
+                            </button>
+                            <ul id="repeating-recordings-${id}" class="space-y-2"></ul>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg mb-3">オーバーラッピング</h3>
+                            <button onclick="handleRecordClick(this, 'overlapping', '${id}', '${fullSentence.replace(/'/g, "\\'")}')" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg mb-3 transition-colors duration-200">
+                                録音開始
+                            </button>
+                            <ul id="overlapping-recordings-${id}" class="space-y-2"></ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.onload = () => {
+            const container = document.getElementById('app-container');
+            container.innerHTML = dictationData.map(createDictationCard).join('');
+            setupAudio();
+        };
+
+    </script>
+</body>
+</html>
